@@ -1,0 +1,11 @@
+public enum OrderStatus {
+    SUBMITTED,
+    PAYMENT_PENDING,
+    PAID,
+    PAYMENT_FAILED,
+    INSUFFICIENT_STOCK,
+    PACKED,
+    OUT_FOR_DELIVERY,
+    DELIVERED,
+    CANCELLED
+}
