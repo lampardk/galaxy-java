@@ -9,8 +9,10 @@ public class DeliveryManager {
     private ConcurrentLinkedQueue<DeliveryVehicle> idleVehicles = new ConcurrentLinkedQueue<>();
     private Semaphore vehicleSemaphore = new Semaphore(4, true); // Shared resource. 
     private AtomicInteger totalOrdersDelivered = new AtomicInteger();
+    private NotificationService notificationService;
 
-    public DeliveryManager() {
+    public DeliveryManager(NotificationService notificationService) {
+        this.notificationService = notificationService;
         for(int i=1;i<=4;i++) {
             DeliveryVehicle vehicle = new DeliveryVehicle(i, "KDD-" + 100+i + "X");
             vehicleFleet.add(vehicle);
@@ -25,6 +27,7 @@ public class DeliveryManager {
             // if vehicle == null, release and return false. 
             order.setAssignedvehicleId(vehicle.getVehicleid());
             order.setStatus(OrderStatus.OUT_FOR_DELIVERY, "Loaded to #" + vehicle.getVehicleid());
+            notificationService.notifyOrderDispatched(order, vehicle.getVehicleid());
 
             // Thread sleep
             Thread.sleep(30);
@@ -32,6 +35,7 @@ public class DeliveryManager {
             order.setStatus(OrderStatus.DELIVERED, "Delivered! by #" + vehicle.getVehicleid());
             totalOrdersDelivered.incrementAndGet(); // 1++
             vehicle.incrementTrips();
+            notificationService.notifyOrderDelivered(order);
 
             idleVehicles.add(vehicle);
             vehicleSemaphore.release();

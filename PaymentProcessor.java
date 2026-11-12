@@ -7,6 +7,7 @@ public class PaymentProcessor implements Runnable { // means that it has a run()
     private BlockingQueue<CustomerOrder> submissionQueue; // converyeerbelt. <Data Type>
     private BlockingQueue<CustomerOrder> packingQueue;
     private InventoryManager inventoryManager;
+    private NotificationService notificationService;
     // NotificationService. 
 
     private static AtomicInteger successfulPayments = new AtomicInteger(0); // static final. 
@@ -19,11 +20,13 @@ public class PaymentProcessor implements Runnable { // means that it has a run()
     public PaymentProcessor(String workerName, 
                             BlockingQueue<CustomerOrder> submissionQueue,
                             BlockingQueue<CustomerOrder> packingQueue,
-                            InventoryManager inventoryManager ) {
+                            InventoryManager inventoryManager,
+                            NotificationService notificationService ) {
         this.workerName = workerName;
         this.submissionQueue = submissionQueue;
         this.packingQueue = packingQueue;
         this.inventoryManager = inventoryManager;
+        this.notificationService = notificationService;
     }
 
     public void stopWorking() {
@@ -42,6 +45,7 @@ public class PaymentProcessor implements Runnable { // means that it has a run()
                 if(!stockReserved) {
                     order.setStatus(OrderStatus.CANCELLED, "Insufficient Stock for " + order.getProductName());
                     outOfStockCancellations.incrementAndGet();
+                    notificationService.notifyOrderCancelled(order, "Item out of stock");
                     continue;
                 }
                 // add latency 
@@ -50,6 +54,7 @@ public class PaymentProcessor implements Runnable { // means that it has a run()
                 if(paymentSuccess) {
                     order.setStatus(OrderStatus.PAID, "Paymet Successful by " + workerName);
                     successfulPayments.incrementAndGet(); 
+                    notificationService.notifyOrderConfirmed(order);
 
                     packingQueue.put(order);
                 } else {

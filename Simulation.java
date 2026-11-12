@@ -13,7 +13,8 @@ public class Simulation {
         int initialStockA = 100;
         int initialStockB = 50;
         InventoryManager inventoryManager = new InventoryManager(initialStockA, initialStockB);
-        DeliveryManager deliveryManager = new DeliveryManager();
+        NotificationService notificationService =  new NotificationService();
+        DeliveryManager deliveryManager = new DeliveryManager(notificationService);
 
         BlockingQueue<CustomerOrder> submissionQueue = new LinkedBlockingQueue<>();
         BlockingQueue<CustomerOrder> packingQueue = new LinkedBlockingQueue<>();
@@ -25,32 +26,35 @@ public class Simulation {
 
         List<PaymentProcessor> paymentWorkers = new ArrayList<>();
         for(int i=1;i<=3;i++) {
-            PaymentProcessor worker = new PaymentProcessor("Payworker-#"+i, submissionQueue, packingQueue, inventoryManager);
+            PaymentProcessor worker = new PaymentProcessor("Payworker-#"+i, submissionQueue, packingQueue, inventoryManager, notificationService);
             paymentWorkers.add(worker);
             paymentPool.submit(worker);
         }
 
         List<WarehouseWorker> warehouseWorkers = new ArrayList<>();
-        for(int i=5;i<=5;i++) {
+        for(int i=1;i<=5;i++) {
             WarehouseWorker worker = new WarehouseWorker("Warehouse-"+i, packingQueue, deliveryQueue);
             warehouseWorkers.add(worker);
             wareHousePool.submit(worker);
         }
 
-        List<Runnable> deliveryWorkers = new ArrayList<>();
+        java.util.concurrent.atomic.AtomicInteger deliveryRunning = new java.util.concurrent.atomic.AtomicInteger(1);
+
         for(int i=1;i<=4;i++) {
             deliveryPool.submit(() -> {
-                while(!deliveryQueue.isEmpty()) {
+                while(deliveryRunning.get() == 1 || !deliveryQueue.isEmpty()) {
                     try {
                         CustomerOrder order = deliveryQueue.poll(50, TimeUnit.MILLISECONDS);
-                        deliveryManager.deliverOrder(order);
+                        if (order != null) {
+                            deliveryManager.deliverOrder(order);
+                        }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;
                     }
                 }
             });
-        } // .submit(Runnable) .submit(() -> {..............})
+        }
         int totalCustomerOrders = 1000;
         System.out.println("===========SUBMITTING ORDERS==============");
         ExecutorService customerSubmissionPool = Executors.newFixedThreadPool(20);
@@ -64,15 +68,21 @@ public class Simulation {
             });
         }
 
-        customerSubmissionPool.shutdown(); // thread/pool.shutdown(). Stops receving tasks. 
-        customerSubmissionPool.awaitTermination(5, TimeUnit.SECONDS); // 5 seconds. 
+        customerSubmissionPool.shutdown();
+        customerSubmissionPool.awaitTermination(5, TimeUnit.SECONDS);
 
+        while (!submissionQueue.isEmpty()) Thread.sleep(50);
         for (PaymentProcessor p: paymentWorkers) p.stopWorking();
         paymentPool.shutdown();
         paymentPool.awaitTermination(5, TimeUnit.SECONDS);
+
+        while (!packingQueue.isEmpty()) Thread.sleep(50);
         for (WarehouseWorker w: warehouseWorkers) w.stopRunning();
         wareHousePool.shutdown();
         wareHousePool.awaitTermination(5, TimeUnit.SECONDS);
+
+        while (!deliveryQueue.isEmpty()) Thread.sleep(50);
+        deliveryRunning.set(0);
         deliveryPool.shutdown();
         deliveryPool.awaitTermination(10, TimeUnit.SECONDS);
 
