@@ -14,7 +14,7 @@ public class InventoryManager {
         totalSold.put("Product A", 0);
         totalSold.put("Product B", 0);
         totalCancelledStock.put("Product A", 0);
-        totalCancelledStock.put("Product A", 0);
+        totalCancelledStock.put("Product B", 0);
     }
 
     public boolean reserveStock(CustomerOrder order) {
